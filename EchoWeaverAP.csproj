@@ -1,0 +1,91 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Version>0.0.0-dev</Version>
+    <BepInExPluginVersion>$([System.Text.RegularExpressions.Regex]::Replace($(Version), '-.*$', ''))</BepInExPluginVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <RestoreAdditionalProjectSources>
+      https://api.nuget.org/v3/index.json;
+      https://nuget.bepinex.dev/v3/index.json;
+      https://nuget.samboy.dev/v3/index.json
+    </RestoreAdditionalProjectSources>
+    <RootNamespace>EchoWeaverAP</RootNamespace>
+    <Deterministic>true</Deterministic>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Archipelago.MultiClient.Net" Version="6.7.1" />
+    <PackageReference Include="Archipelago.MultiClient.Net.Analyzers" Version="2.*" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.Core" Version="5.*" ExcludeAssets="runtime" />
+    <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2.0" />
+    <PackageReference Include="UnityEngine.Modules" Version="6000.0.66" IncludeAssets="compile" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <EmbeddedResource Include="Resources/Archipelago.png" />
+    <EmbeddedResource Include="Resources/ArchipelagoFiller.png" />
+    <EmbeddedResource Include="Resources/ArchipelagoProgression.png" />
+    <EmbeddedResource Include="Resources/DoubleJump.png" />
+    <EmbeddedResource Include="Resources/Glide.png" />
+    <EmbeddedResource Include="Resources/WallJump.png" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="geode" Private="false">
+      <HintPath>lib/geode.dll</HintPath>
+    </Reference>
+    <Reference Include="space-game" Private="false">
+      <HintPath>lib/space-game.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.InputSystem" Private="false">
+      <HintPath>lib/Unity.InputSystem.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI" Private="false">
+      <HintPath>lib/UnityEngine.UI.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="LICENSE" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- The build is pinned to the version bundled with Echo Weaver. -->
+  <Target Name="RemoveNewtonsoftJsonBeforePublish" BeforeTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'Newtonsoft.Json.dll'" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="ZipPublishOutput" AfterTargets="Publish">
+    <PropertyGroup>
+      <StagingDir>$(IntermediateOutputPath)ZipStaging/</StagingDir>
+      <PackageDir>$(PublishDir)../package</PackageDir>
+      <PackagePath>$(PackageDir)/$(AssemblyName).zip</PackagePath>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <OutputFiles Include="$(PublishDir)**/*" />
+    </ItemGroup>
+
+    <!-- Ensure a clean staging directory. -->
+    <RemoveDir Directories="$(StagingDir)" />
+    <MakeDir Directories="$(StagingDir)$(AssemblyName)" />
+    <Copy SourceFiles="@(OutputFiles)" DestinationFolder="$(StagingDir)$(AssemblyName)" />
+
+    <MakeDir Directories="$(PackageDir)" />
+    <ZipDirectory SourceDirectory="$(StagingDir)" DestinationFile="$(PackagePath)" Overwrite="true" />
+
+    <RemoveDir Directories="$(StagingDir)" />
+  </Target>
+</Project>

@@ -1,0 +1,40 @@
+name: Create Release on Tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+  contents: write
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+      - name: dotnet publish
+        run: dotnet publish -c Release -p:Version=${GITHUB_REF_NAME#v}
+      - uses: actions/attest@v4
+        with:
+          subject-path: '${{ github.workspace }}/bin/Release/netstandard2.1/package/EchoWeaverAP.zip'
+      - uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          artifacts: 'bin/Release/netstandard2.1/package/EchoWeaverAP.zip,bin/Release/netstandard2.1/EchoWeaverAP.pdb'
+
+          generateReleaseNotes: true
+          immutableCreate: true
+          # Tag names containing a hyphen are marked as prerelease (e.g. v1.0.0-pre1).
+          prerelease: ${{ contains(github.ref_name, '-') }}

@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+jobs:
+  markdownlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: davidanson/markdownlint-cli2-action@v25
+
+  dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: dotnet format
+        run: dotnet format --verify-no-changes --verbosity diagnostic
+      - name: dotnet build
+        run: dotnet build --no-restore -warnaserror
