@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 using EchoWeaverAP.Randomizer;
 using geode;
 using HarmonyLib;
@@ -19,7 +20,26 @@ namespace EchoWeaverAP.Patches;
 public class PuzzlePatcher
 {
     /// <summary>
-    /// Updates keypad codes with images and solutions from the Randomizer.
+    /// Updates keypad codes with solutions from the Randomizer.
+    /// </summary>
+    [HarmonyPatch(typeof(KeypadOverlay))]
+    [HarmonyPatch(nameof(KeypadOverlay.Open))]
+    public static class KeypadOverlay_Open_Patch
+    {
+        private static readonly AccessTools.FieldRef<KeypadInjector, List<int>[]> s_passcodesRef =
+            AccessTools.FieldRefAccess<KeypadInjector, List<int>[]>("passcodes");
+
+        static void Prefix(KeypadInjector _keypadInjector)
+        {
+            if (Plugin.Randomizer.TryGetKeypadInfo(_keypadInjector.InstanceID, out var passcodes, out var buttons))
+            {
+                s_passcodesRef(_keypadInjector) = passcodes;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Updates keypad codes with images from the Randomizer.
     /// </summary>
     [HarmonyPatch(typeof(KeypadOverlay))]
     [HarmonyPatch("Awake")]
@@ -27,12 +47,8 @@ public class PuzzlePatcher
     {
         private static readonly AccessTools.FieldRef<KeypadInstance> s_keypadInstanceRef =
             AccessTools.StaticFieldRefAccess<KeypadInstance>(AccessTools.Field(typeof(KeypadOverlay), "instanceID"));
-        private static readonly AccessTools.FieldRef<List<int>[]> s_allowedCodesRef =
-            AccessTools.StaticFieldRefAccess<List<int>[]>(AccessTools.Field(typeof(KeypadOverlay), "allowedCodes"));
         private static readonly AccessTools.FieldRef<KeypadOverlay, GameObject> s_churchControlsGroupRef =
             AccessTools.FieldRefAccess<KeypadOverlay, GameObject>("churchControlsGroup");
-        private static readonly AccessTools.FieldRef<KeypadOverlay, GameObject[]> s_instanceSymbolGroupsRef =
-            AccessTools.FieldRefAccess<KeypadOverlay, GameObject[]>("instanceSymbolGroups");
 
         private delegate GameObject GetSymbolGroupForIdDelegate(KeypadOverlay keypadOverlay);
         private static readonly GetSymbolGroupForIdDelegate s_getSymbolGroupForId =
@@ -49,20 +65,22 @@ public class PuzzlePatcher
             {
                 s_digitCache ??= PopulateDigitCache();
 
-                s_allowedCodesRef() = passcodes;
+                int index = -1;
                 GameObject symbolGroup = GetActiveSymbolGroup(__instance, keypadInstance);
-                IEnumerator<(Digit, D8Symmetry)> buttonIterator = ((IEnumerable<(Digit, D8Symmetry)>)buttons).GetEnumerator();
                 foreach (Image image in symbolGroup.GetComponentsInChildren<Image>(true))
                 {
                     if (!image.sprite.name.StartsWith("Digit_")) continue;
-                    if (!buttonIterator.MoveNext())
+                    if (image.name != "fake-image" && ++index >= buttons.Length)
                     {
                         throw new InvalidOperationException($"Randomizer provided too few buttons for {keypadInstance}");
                     }
 
-                    (Digit digit, D8Symmetry symmetry) = buttonIterator.Current;
-                    image.color = image.color.SetAlpha(1f);
-                    image.enabled = true;
+                    (Digit digit, D8Symmetry symmetry) = buttons[index];
+                    if (keypadInstance != KeypadInstance.ChurchElevator || index != 14)
+                    {
+                        image.color = image.color.SetAlpha(1f);
+                        image.enabled = true;
+                    }
                     image.sprite = s_digitCache[digit];
                     switch (symmetry)
                     {
@@ -107,7 +125,7 @@ public class PuzzlePatcher
                             break;
                     }
                 }
-                if (buttonIterator.MoveNext())
+                if (index != buttons.Length - 1)
                 {
                     throw new InvalidOperationException($"Randomizer provided too many buttons for {keypadInstance}");
                 }
@@ -117,7 +135,8 @@ public class PuzzlePatcher
         private static Dictionary<Digit, Sprite> PopulateDigitCache()
         {
             SpriteAtlas atlas = Resources.FindObjectsOfTypeAll<SpriteAtlas>().First(a => a.name == "Common UI Atlas");
-            return new(){
+            return new()
+            {
                 [Digit.Zero] = atlas.GetSprite("Digit_00"),
                 [Digit.One] = atlas.GetSprite("Digit_01"),
                 [Digit.Two] = atlas.GetSprite("Digit_02"),
@@ -152,6 +171,64 @@ public class PuzzlePatcher
             {
                 return s_getSymbolGroupForId.Invoke(keypadOverlay);
             }
+        }
+    }
+
+    /// <summary>
+    /// Updates the church elevator to use the codes from the Randomizer.
+    /// </summary>
+    [HarmonyPatch(typeof(ChurchElevatorControlTerminal))]
+    [HarmonyPatch("onInteract")]
+    public static class ChurchElevatorControlTerminal_onInteract_Patch
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var codeMatcher = new CodeMatcher(instructions);
+            codeMatcher.MatchForward(false, new CodeMatch(OpCodes.Ldsfld, AccessTools.Field(typeof(DesignValues.KeypadCodes), nameof(DesignValues.KeypadCodes.ChurchToPosition1))))
+                .ThrowIfInvalid("Failed to find DesignValues.KeypadCodes.ChurchToPosition1")
+                .SetInstructionAndAdvance(new CodeInstruction(OpCodes.Ldc_I4_0))
+                .InsertAndAdvance(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ChurchElevatorControlTerminal_onInteract_Patch), nameof(GetElevatorCode))));
+            codeMatcher.MatchForward(false, new CodeMatch(OpCodes.Ldsfld, AccessTools.Field(typeof(DesignValues.KeypadCodes), nameof(DesignValues.KeypadCodes.ChurchToPosition2))))
+                .ThrowIfInvalid("Failed to find DesignValues.KeypadCodes.ChurchToPosition2")
+                .SetInstructionAndAdvance(new CodeInstruction(OpCodes.Ldc_I4_1))
+                .InsertAndAdvance(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ChurchElevatorControlTerminal_onInteract_Patch), nameof(GetElevatorCode))));
+            codeMatcher.MatchForward(false, new CodeMatch(OpCodes.Ldsfld, AccessTools.Field(typeof(DesignValues.KeypadCodes), nameof(DesignValues.KeypadCodes.ChurchToPosition3))))
+                .ThrowIfInvalid("Failed to find DesignValues.KeypadCodes.ChurchToPosition3")
+                .SetInstructionAndAdvance(new CodeInstruction(OpCodes.Ldc_I4_2))
+                .InsertAndAdvance(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ChurchElevatorControlTerminal_onInteract_Patch), nameof(GetElevatorCode))));
+            codeMatcher.MatchForward(false, new CodeMatch(OpCodes.Ldsfld, AccessTools.Field(typeof(DesignValues.KeypadCodes), nameof(DesignValues.KeypadCodes.ChurchToPosition4))))
+                .ThrowIfInvalid("Failed to find DesignValues.KeypadCodes.ChurchToPosition4")
+                .SetInstructionAndAdvance(new CodeInstruction(OpCodes.Ldc_I4_3))
+                .InsertAndAdvance(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ChurchElevatorControlTerminal_onInteract_Patch), nameof(GetElevatorCode))));
+            codeMatcher.MatchForward(false, new CodeMatch(OpCodes.Ldsfld, AccessTools.Field(typeof(DesignValues.KeypadCodes), nameof(DesignValues.KeypadCodes.ChurchSummon))))
+                .ThrowIfInvalid("Failed to find DesignValues.KeypadCodes.ChurchSummon")
+                .SetInstructionAndAdvance(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ChurchElevatorControlTerminal_onInteract_Patch), nameof(GetSummonCode))));
+            return codeMatcher.Instructions();
+        }
+
+        private static List<int> GetElevatorCode(int index)
+        {
+            if (Plugin.Randomizer.TryGetKeypadInfo(KeypadInstance.ChurchElevator, out var passcodes, out var buttons) && index < passcodes.Length)
+            {
+                return passcodes[index];
+            }
+            // Fall back to the vanilla codes.
+            return index switch
+            {
+                0 => DesignValues.KeypadCodes.ChurchToPosition1,
+                1 => DesignValues.KeypadCodes.ChurchToPosition2,
+                3 => DesignValues.KeypadCodes.ChurchToPosition4,
+                _ => DesignValues.KeypadCodes.ChurchToPosition3,
+            };
+        }
+
+        private static List<int> GetSummonCode()
+        {
+            if (Plugin.Randomizer.TryGetKeypadInfo(KeypadInstance.ChurchElevatorSummon, out var passcodes, out var buttons) && passcodes.Length > 0)
+            {
+                return passcodes[0];
+            }
+            return DesignValues.KeypadCodes.ChurchSummon;
         }
     }
 
