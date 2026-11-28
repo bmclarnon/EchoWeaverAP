@@ -75,6 +75,9 @@ public class PuzzlePatcher
                         throw new InvalidOperationException($"Randomizer provided too few buttons for {keypadInstance}");
                     }
 
+                    // A few buttons have a rotated parent.
+                    image.transform.parent.localEulerAngles = Vector3.zero;
+
                     (Digit digit, D8Symmetry symmetry) = buttons[index];
                     if (keypadInstance != KeypadInstance.ChurchElevator || index != 14)
                     {
