@@ -8,8 +8,7 @@ namespace EchoWeaverAP.Randomizer;
 /// </summary>
 public enum Digit
 {
-    Start = 0,  // Digit_Start
-    Zero,  // Digit_00
+    Zero = 0,  // Digit_00
     One,  // Digit_01
     Two,  // Digit_02
     Three,  // Digit_03
@@ -19,8 +18,10 @@ public enum Digit
     Seven,  // Digit_07
     Eight,  // Digit_08
     Nine,  // Digit_09
-    NineClosed,  // Digit_09_closed
+    Ten,   // Digit_10
     Eleven,  // Digit_11
+    Start,  // Digit_Start
+    NineClosed,  // Digit_09_closed
     SimpleStraight,  // Digit_Simple_Straight
     SimpleTurn,  // Digit_Simple_Turn
 }

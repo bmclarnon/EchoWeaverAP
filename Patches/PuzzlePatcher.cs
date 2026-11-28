@@ -8,6 +8,7 @@ using EchoWeaverAP.Randomizer;
 using geode;
 using HarmonyLib;
 using UnityEngine;
+using UnityEngine.U2D;
 using UnityEngine.UI;
 
 namespace EchoWeaverAP.Patches;
@@ -46,7 +47,7 @@ public class PuzzlePatcher
             KeypadInstance keypadInstance = s_keypadInstanceRef();
             if (Plugin.Randomizer.TryGetKeypadInfo(keypadInstance, out var passcodes, out var buttons))
             {
-                s_digitCache ??= PopulateDigitCache(__instance);
+                s_digitCache ??= PopulateDigitCache();
 
                 s_allowedCodesRef() = passcodes;
                 GameObject symbolGroup = GetActiveSymbolGroup(__instance, keypadInstance);
@@ -113,38 +114,27 @@ public class PuzzlePatcher
             }
         }
 
-        private static Dictionary<Digit, Sprite> PopulateDigitCache(KeypadOverlay keypadOverlay)
+        private static Dictionary<Digit, Sprite> PopulateDigitCache()
         {
-            Dictionary<Digit, Sprite> cache = [];
-            foreach (GameObject symbolGroup in s_instanceSymbolGroupsRef(keypadOverlay))
-            {
-                foreach (Image image in symbolGroup.GetComponentsInChildren<Image>(true))
-                {
-                    string name = image.sprite.name;
-                    Digit? digit =
-                        name == "Digit_00" ? Digit.Zero
-                        : name == "Digit_01" ? Digit.One
-                        : name == "Digit_02" ? Digit.Two
-                        : name == "Digit_03" ? Digit.Three
-                        : name == "Digit_04" ? Digit.Four
-                        : name == "Digit_05" ? Digit.Five
-                        : name == "Digit_06" ? Digit.Six
-                        : name == "Digit_07" ? Digit.Seven
-                        : name == "Digit_08" ? Digit.Eight
-                        : name == "Digit_09" ? Digit.Nine
-                        : name == "Digit_09_closed" ? Digit.NineClosed
-                        : name == "Digit_11" ? Digit.Eleven
-                        : name == "Digit_Simple_Straight" ? Digit.SimpleStraight
-                        : name == "Digit_Simple_Turn" ? Digit.SimpleTurn
-                        : name == "Digit_Start" ? Digit.Start
-                        : null;
-                    if (digit != null)
-                    {
-                        cache[digit.Value] = image.sprite;
-                    }
-                }
-            }
-            return cache;
+            SpriteAtlas atlas = Resources.FindObjectsOfTypeAll<SpriteAtlas>().First(a => a.name == "Common UI Atlas");
+            return new(){
+                [Digit.Zero] = atlas.GetSprite("Digit_00"),
+                [Digit.One] = atlas.GetSprite("Digit_01"),
+                [Digit.Two] = atlas.GetSprite("Digit_02"),
+                [Digit.Three] = atlas.GetSprite("Digit_03"),
+                [Digit.Four] = atlas.GetSprite("Digit_04"),
+                [Digit.Five] = atlas.GetSprite("Digit_05"),
+                [Digit.Six] = atlas.GetSprite("Digit_06"),
+                [Digit.Seven] = atlas.GetSprite("Digit_07"),
+                [Digit.Eight] = atlas.GetSprite("Digit_08"),
+                [Digit.Nine] = atlas.GetSprite("Digit_09"),
+                [Digit.Ten] = atlas.GetSprite("Digit_10"),
+                [Digit.Eleven] = atlas.GetSprite("Digit_11"),
+                [Digit.Start] = atlas.GetSprite("Digit_Start"),
+                [Digit.NineClosed] = atlas.GetSprite("Digit_09_closed"),
+                [Digit.SimpleStraight] = atlas.GetSprite("Digit_Simple_Straight"),
+                [Digit.SimpleTurn] = atlas.GetSprite("Digit_Simple_Turn"),
+            };
         }
 
         private static GameObject GetActiveSymbolGroup(KeypadOverlay keypadOverlay, KeypadInstance keypadInstance)
