@@ -111,6 +111,12 @@ public class CollectablePatcher
             {
                 collectable.gameObject.AddComponent<ItemDescriptionOverride>().Description = desc;
             }
+
+            // Replacing the sprite can undo the visual effects for already-collected pickups.
+            if (SimpleSaveable.CompletedAcrossLoops(collectable.gameObject))
+            {
+                collectable.CompletedAcrossLoops(true);
+            }
         }
 
         private static GameObject[] s_keyItemPrefabs;
